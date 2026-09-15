@@ -44,6 +44,7 @@ body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 <body>
 <div class="venues" id="venues"></div>
 <div id="errBox"></div>
+<div id="badge" style="position:absolute;bottom:1%;right:1.2%;font:600 1.5vh -apple-system,Arial;padding:.4vh 1vw;border-radius:1vh;background:rgba(0,0,0,.35);color:#fff;letter-spacing:.05em"></div>
 
 <script>
 // ============================================================================
@@ -75,7 +76,8 @@ const DEMO = { ok:true, venues:[
   {label:"ES Lobby",aqi:186}
 ]};
 
-function render(d){
+function setBadge(t,c){var b=document.getElementById("badge"); if(b){b.textContent=t; b.style.color=c;}}
+function render(d,live){
   document.getElementById("errBox").innerHTML="";
   const box=document.getElementById("venues");
   box.innerHTML="";
@@ -91,23 +93,29 @@ function render(d){
       '<div class="cat">'+catShort(v.aqi)+'</div>';
     box.appendChild(el);
   });
+  setBadge(arguments[1]?"\u25CF LIVE":"\u25CF SAMPLE", arguments[1]?"#7CE7B0":"#FFC96B");
 }
 
+var lastGood=null;
 function load(){
-  if(!CONFIG.endpoint){render(DEMO);return;}
+  if(!CONFIG.endpoint){ if(!lastGood) render(DEMO,false); return; }
   const cb="__iskl_sig_"+Date.now();
   const sep=CONFIG.endpoint.includes("?")?"&":"?";
   const s=document.createElement("script");
-  const timer=setTimeout(()=>{fail();cleanup();},15000);
-  window[cb]=(d)=>{clearTimeout(timer);cleanup(); if(d&&d.ok){render(d);} else fail(d&&d.error);};
-  function cleanup(){delete window[cb];s.remove();}
-  s.onerror=()=>{clearTimeout(timer);cleanup();fail();};
+  const timer=setTimeout(()=>{ softFail("timeout"); cleanup(); },12000);
+  window[cb]=(d)=>{ clearTimeout(timer); cleanup();
+    if(d&&d.ok&&d.venues&&d.venues.length){ lastGood=d; render(d,true); }
+    else softFail(d&&d.error); };
+  function cleanup(){ delete window[cb]; s.remove(); }
+  s.onerror=()=>{ clearTimeout(timer); cleanup(); softFail("network"); };
   s.src=CONFIG.endpoint+sep+"callback="+cb;
   document.body.appendChild(s);
 }
-function fail(msg){
+// A failed refresh must NOT wipe good data — keep the last real reading on screen.
+function softFail(msg){
+  if(lastGood){ render(lastGood,true); return; }
   document.getElementById("errBox").innerHTML='<div class="err">'+(msg?("Endpoint: "+msg):"Data unavailable")+' — sample</div>';
-  render(DEMO);
+  render(DEMO,false);
 }
 
 load(); setInterval(load,CONFIG.refreshMs);
