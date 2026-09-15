@@ -6,34 +6,41 @@
 <title>ISKL Campus Sensors</title>
 <style>
 :root{
-  /* ---- adjust when placing on signage ---- */
-  --cols:3;         /* how many icons per row */
-  --gap:2.4vmin;    /* space between icons */
-  --pad:3vmin;      /* outer padding; 0 to bleed to edges */
-  --radius:23%;     /* icon corner roundness (iOS squircle ~ 22-24%) */
-  --textscale:1;    /* nudge text bigger/smaller inside icons */
+  /* ---- design canvas: the tiles are laid out at this fixed size, then the
+         whole canvas is scaled to fit the RevelDigital zone (contain = no clip).
+         Set --appW / --appH to roughly your zone's shape. ---- */
+  --appW:1600px;
+  --appH:520px;
+  --gap:44px;         /* space between icons (in canvas px) */
+  --radius:23%;       /* icon roundness */
+  --textscale:1;      /* text nudge */
 }
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;width:100%;background:transparent}
-body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  position:fixed;inset:0;padding:var(--pad);overflow:hidden}
+html,body{height:100%;width:100%;background:transparent;overflow:hidden}
+body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 
-.venues{container-type:size;height:100%;width:100%;display:flex;flex-wrap:wrap;gap:var(--gap);
-  align-content:center;justify-content:center}
+/* fixed-size stage, centered and scaled by JS to fit the frame */
+#stage{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+  transform-origin:center center;width:var(--appW);height:var(--appH)}
+
+.venues{width:100%;height:100%;display:flex;gap:var(--gap);
+  align-items:center;justify-content:center}
 
 .card{
   flex:0 0 auto;border-radius:var(--radius);position:relative;overflow:hidden;
   container-type:size;color:#fff;text-align:center;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  box-shadow:0 2.4vmin 6vmin -2vmin rgba(0,0,0,.5), inset 0 .35vmin 0 rgba(255,255,255,.35);
+  box-shadow:0 24px 60px -18px rgba(0,0,0,.5), inset 0 4px 0 rgba(255,255,255,.35);
 }
 .card::after{content:"";position:absolute;inset:0;border-radius:var(--radius);pointer-events:none;
   background:radial-gradient(125% 80% at 50% -12%,rgba(255,255,255,.38),transparent 55%)}
 .card .name{font-size:calc(11cqmin * var(--textscale));font-weight:700;letter-spacing:.09em;
   text-transform:uppercase;opacity:.96;padding:0 6%;line-height:1.1}
-.card .face{width:calc(24cqmin * var(--textscale));height:calc(24cqmin * var(--textscale));margin:calc(1.5cqmin * var(--textscale)) 0 calc(-1cqmin * var(--textscale));filter:drop-shadow(0 .4vmin 1vmin rgba(0,0,0,.25))}
+.card .face{width:calc(24cqmin * var(--textscale));height:calc(24cqmin * var(--textscale));
+  margin:calc(1.5cqmin * var(--textscale)) 0 calc(-1cqmin * var(--textscale));
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,.25))}
 .card .val{font-size:calc(40cqmin * var(--textscale));font-weight:800;line-height:.92;letter-spacing:-.03em;
-  text-shadow:0 .5vmin 1.5vmin rgba(0,0,0,.18)}
+  text-shadow:0 6px 16px rgba(0,0,0,.18)}
 .card .cat{font-size:calc(8.5cqmin * var(--textscale));font-weight:700;opacity:.95;
   margin-top:calc(1.5cqmin * var(--textscale));padding:0 6%;line-height:1.1}
 
@@ -42,8 +49,8 @@ body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 </style>
 </head>
 <body>
+<div id="stage"><div class="venues" id="venues"></div></div>
 <div id="errBox"></div>
-<div class="venues" id="venues"></div>
 
 <script>
 // ============================================================================
@@ -65,10 +72,8 @@ function catShort(a){
   if(a<=300)return "Very Unhealthy"; return "Hazardous";
 }
 function darken(hex,f){
-  const n=parseInt(hex.slice(1),16);
-  let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
-  r=Math.round(r*f); g=Math.round(g*f); b=Math.round(b*f);
-  return "rgb("+r+","+g+","+b+")";
+  const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  return "rgb("+Math.round(r*f)+","+Math.round(g*f)+","+Math.round(b*f)+")";
 }
 
 const DEMO = { ok:true, venues:[
@@ -77,22 +82,30 @@ const DEMO = { ok:true, venues:[
   {label:"ES Lobby",aqi:186}
 ]};
 
+// scale the fixed canvas to fit the frame (contain -> never clips)
+function fitStage(){
+  const s=document.getElementById("stage");
+  const aw=s.offsetWidth, ah=s.offsetHeight;
+  if(!aw||!ah)return;
+  const k=Math.min(window.innerWidth/aw, window.innerHeight/ah);
+  s.style.transform="translate(-50%,-50%) scale("+k+")";
+}
+
+// size the square tiles inside the (fixed) stage
 function sizeTiles(){
   const box=document.getElementById("venues");
   const cards=box.querySelectorAll(".card"); const n=cards.length; if(!n)return;
   const cs=getComputedStyle(box);
   const gap=parseFloat(cs.columnGap||cs.gap||"0")||0;
-  const W=box.clientWidth, H=box.clientHeight;
-  const side=Math.max(0, Math.min((W-(n-1)*gap)/n, H));
+  const side=Math.max(0, Math.min((box.clientWidth-(n-1)*gap)/n, box.clientHeight));
   cards.forEach(c=>{ c.style.width=side+"px"; c.style.height=side+"px"; });
 }
+
 function render(d){
   document.getElementById("errBox").innerHTML="";
   const box=document.getElementById("venues");
   box.innerHTML="";
-  const vs=(d.venues||[]);
-  box.style.setProperty("--cols", Math.min(vs.length||1, getComputedStyle(document.documentElement).getPropertyValue("--cols").trim()||3));
-  vs.forEach(v=>{
+  (d.venues||[]).forEach(v=>{
     const c=colorFor(v.aqi);
     const el=document.createElement("div");
     el.className="card";
@@ -105,6 +118,7 @@ function render(d){
     box.appendChild(el);
   });
   sizeTiles();
+  fitStage();
 }
 
 function load(){
@@ -124,7 +138,7 @@ function fail(msg){
   render(DEMO);
 }
 
-window.addEventListener("resize", sizeTiles);
+window.addEventListener("resize", function(){ sizeTiles(); fitStage(); });
 load(); setInterval(load,CONFIG.refreshMs);
 </script>
 </body>
