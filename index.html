@@ -16,14 +16,13 @@
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;width:100%;background:transparent}
 body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  padding:var(--pad);overflow:hidden}
+  position:fixed;inset:0;padding:var(--pad);overflow:hidden}
 
 .venues{container-type:size;height:100%;width:100%;display:flex;flex-wrap:wrap;gap:var(--gap);
   align-content:center;justify-content:center}
 
 .card{
-  width:min(calc((100cqw - (var(--cols) - 1) * var(--gap)) / var(--cols)), 96cqh);
-  aspect-ratio:1;border-radius:var(--radius);position:relative;overflow:hidden;
+  flex:0 0 auto;border-radius:var(--radius);position:relative;overflow:hidden;
   container-type:size;color:#fff;text-align:center;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   box-shadow:0 2.4vmin 6vmin -2vmin rgba(0,0,0,.5), inset 0 .35vmin 0 rgba(255,255,255,.35);
@@ -78,6 +77,15 @@ const DEMO = { ok:true, venues:[
   {label:"ES Lobby",aqi:186}
 ]};
 
+function sizeTiles(){
+  const box=document.getElementById("venues");
+  const cards=box.querySelectorAll(".card"); const n=cards.length; if(!n)return;
+  const cs=getComputedStyle(box);
+  const gap=parseFloat(cs.columnGap||cs.gap||"0")||0;
+  const W=box.clientWidth, H=box.clientHeight;
+  const side=Math.max(0, Math.min((W-(n-1)*gap)/n, H));
+  cards.forEach(c=>{ c.style.width=side+"px"; c.style.height=side+"px"; });
+}
 function render(d){
   document.getElementById("errBox").innerHTML="";
   const box=document.getElementById("venues");
@@ -96,6 +104,7 @@ function render(d){
       '<div class="cat">'+catShort(v.aqi)+'</div>';
     box.appendChild(el);
   });
+  sizeTiles();
 }
 
 function load(){
@@ -115,6 +124,7 @@ function fail(msg){
   render(DEMO);
 }
 
+window.addEventListener("resize", sizeTiles);
 load(); setInterval(load,CONFIG.refreshMs);
 </script>
 </body>
